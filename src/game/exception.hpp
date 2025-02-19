@@ -5,36 +5,36 @@
 #pragma once
 
 #include <exception>
-#include <string>
 #include <format>
+#include <string>
 
 namespace game {
-    namespace exception {
-        constexpr char shader_compile_error[] = "shader compilation error";
-        constexpr char shader_link_error[] = "shader link error";
-    }
+    namespace error {
+        inline constexpr char shader_compile_error[] = "shader compilation error";
+        inline constexpr char shader_link_error[]    = "shader link error";
+    } // namespace error
 
-    template<const char* kind>
+    template <const char *kind>
     class generic_exception : public std::exception {
-    public:
-        explicit generic_exception(const std::string& message) : message(std::format("{}: {}", kind, message)) {};
+      public:
+        explicit generic_exception(const std::string &message) : message(std::format("{}: {}", kind, message)){};
 
-      [[nodiscard]] inline const char *what() const override { return message.c_str(); };
+        [[nodiscard]] inline const char *what() const noexcept override { return message.c_str(); };
 
-    private:
+      private:
         std::string message;
     };
 
     namespace render {
-        class shader_compile_error final : public generic_exception<exception::shader_compile_error> {
+        class shader_compile_error final : public generic_exception<error::shader_compile_error> {
           public:
             explicit shader_compile_error(const std::string &message) : generic_exception(message) {}
         };
 
-        class shader_link_error final : public generic_exception<exception::shader_link_error> {
-        public:
+        class shader_link_error final : public generic_exception<error::shader_link_error> {
+          public:
             explicit shader_link_error(const std::string &message) : generic_exception(message) {}
         };
-    }
+    } // namespace render
 
-}
+} // namespace game

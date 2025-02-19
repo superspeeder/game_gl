@@ -11,7 +11,7 @@ FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_
 
 FetchContent_MakeAvailable(glfw glm spdlog stb)
 
-add_executable(game_gl glad/src/gl.c
+add_executable(game glad/src/gl.c
         src/main.cpp
         src/game/game.cpp
         src/game/game.hpp
@@ -20,7 +20,7 @@ add_executable(game_gl glad/src/gl.c
         src/game/render.hpp
         src/game/exception.cpp
         src/game/exception.hpp)
-target_include_directories(game_gl PRIVATE src/ ${stb_SOURCE_DIR} glad/include/)
-target_link_libraries(game_gl PRIVATE glfw glm::glm spdlog::spdlog)
+target_include_directories(game PRIVATE src/ ${stb_SOURCE_DIR} glad/include/)
+target_link_libraries(game PRIVATE glfw glm::glm spdlog::spdlog)
 
-target_compile_definitions(game_gl PRIVATE GLFW_INCLUDE_NONE GLM_ENABLE_EXPERIMENTAL)
+target_compile_definitions(game PRIVATE GLFW_INCLUDE_NONE GLM_ENABLE_EXPERIMENTAL)
