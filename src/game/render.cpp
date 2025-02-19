@@ -189,6 +189,10 @@ namespace game::render {
         glUseProgram(m_Program);
     }
 
+    int ShaderProgram::get_uniform_location(const std::string_view name) const {
+        return glGetUniformLocation(m_Program, name.data());
+    }
+
     ImageData ImageData::load(const std::filesystem::path &path, const unsigned int desired_num_channels) {
         ImageData data{};
         data.pixel_type = PixelType::U8;
@@ -199,6 +203,10 @@ namespace game::render {
         data.width          = w;
         data.height         = h;
         data.num_components = nc;
+
+        if (data.data == nullptr) {
+            throw std::runtime_error("Failed to load texture");
+        }
         return data;
     }
 
@@ -355,9 +363,22 @@ namespace game::render {
     }
 
     void Texture::bind_unit(const unsigned int unit) const {
-        // TODO: some kind of fancy assert here that bases on some globally collected limit info (i.e. a kind of assert macro formed like: assert_below_limit(MAX_COMBINED_TEXTURE_IMAGE_UNITS, unit);
+        // TODO: some kind of fancy assert here that bases on some globally collected limit info (i.e. a kind of assert macro formed like:
+        // assert_below_limit(MAX_COMBINED_TEXTURE_IMAGE_UNITS, unit);
 
         glActiveTexture(GL_TEXTURE0 + unit);
-        glBindTexture(static_cast<GLenum>(unit), m_Texture);
+        glBindTexture(static_cast<GLenum>(m_Type), m_Texture);
+    }
+
+    std::shared_ptr<Texture> Texture::load(const std::filesystem::path &path) {
+        ImageData image_data = ImageData::load(path);
+        auto      texture    = std::make_shared<Texture>(Type::Texture2D);
+        texture->set_image_2d(image_data);
+        stbi_image_free(image_data.data);
+        return texture;
+    }
+
+    unsigned int Texture::get_handle() const noexcept {
+        return m_Texture;
     }
 } // namespace game::render

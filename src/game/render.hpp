@@ -123,6 +123,8 @@ namespace game::render {
 
         void use() const;
 
+        int get_uniform_location(std::string_view name) const;
+
       private:
         unsigned int m_Program;
     };
@@ -236,6 +238,10 @@ namespace game::render {
 
         void bind() const;
         void bind_unit(unsigned int unit) const;
+
+        static std::shared_ptr<Texture> load(const std::filesystem::path &path);
+
+        [[nodiscard]] unsigned int get_handle() const noexcept;
 
       private:
         Type         m_Type;
