@@ -16,10 +16,14 @@ add_executable(game glad/src/gl.c
         src/game/game.cpp
         src/game/game.hpp
         src/game/stbimpl.cpp
-        src/game/render.cpp
-        src/game/render.hpp
+        src/game/render/render.cpp
+        src/game/render/render.hpp
         src/game/exception.cpp
-        src/game/exception.hpp)
+        src/game/exception.hpp
+        src/game/render/post_process_stack.cpp
+        src/game/render/post_process_stack.hpp
+        src/game/render/render_target.cpp
+        src/game/render/render_target.hpp)
 target_include_directories(game PRIVATE src/ ${stb_SOURCE_DIR} glad/include/)
 target_link_libraries(game PRIVATE glfw glm::glm spdlog::spdlog)
 

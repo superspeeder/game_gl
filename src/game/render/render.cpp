@@ -2,7 +2,7 @@
 // Created by andy on 2/18/2025.
 //
 
-#include "game/render.hpp"
+#include "game/render/render.hpp"
 
 #include <format>
 #include <fstream>
@@ -193,8 +193,22 @@ namespace game::render {
         return glGetUniformLocation(m_Program, name.data());
     }
 
+    void ShaderProgram::uniform1i(const std::string_view name, const int value) const {
+        glProgramUniform1i(m_Program, get_uniform_location(name), value);
+    }
+
+    void ShaderProgram::uniform1f(const std::string_view name, const float value) const {
+        glProgramUniform1f(m_Program, get_uniform_location(name), value);
+    }
+
+    void ShaderProgram::dispatch(const unsigned int x, const unsigned int y, const unsigned int z) const {
+        use();
+        glDispatchCompute(x, y, z);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    }
+
     ImageData ImageData::load(const std::filesystem::path &path, const unsigned int desired_num_channels) {
-        ImageData data{};
+        ImageData data {};
         data.pixel_type = PixelType::U8;
 
         stbi_set_flip_vertically_on_load_thread(true);
@@ -211,7 +225,7 @@ namespace game::render {
     }
 
     ImageData ImageData::loadf(const std::filesystem::path &path, const unsigned int desired_num_channels) {
-        ImageData data{};
+        ImageData data {};
         data.pixel_type = PixelType::F32;
 
         stbi_set_flip_vertically_on_load_thread(true);
@@ -225,10 +239,16 @@ namespace game::render {
 
     Texture::Texture(Type type) : m_Type(type) {
         glCreateTextures(static_cast<GLenum>(type), 1, &m_Texture);
+        glTextureParameteri(m_Texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(m_Texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(m_Texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTextureParameteri(m_Texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTextureParameteri(m_Texture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
     }
 
     Texture::Texture(const unsigned int handle) : m_Texture(handle) {
-        glGetTextureParameteriv(m_Texture, GL_TEXTURE_TARGET, reinterpret_cast<GLint *>(&m_Type)); // magic (not really, just querying the texture about what it is
+        glGetTextureParameteriv(
+            m_Texture, GL_TEXTURE_TARGET, reinterpret_cast<GLint *>(&m_Type)); // magic (not really, just querying the texture about what it is
     }
 
     Texture::Texture(const unsigned int handle, const Type type) : m_Type(type), m_Texture(handle) {}
@@ -355,7 +375,8 @@ namespace game::render {
             throw std::invalid_argument("Bad image data (invalid number of channels).");
         }
 
-        glTexImage2D(GL_TEXTURE_2D, 0, ifmt, image_data.width, image_data.height, 0, fmt, static_cast<GLenum>(image_data.pixel_type), image_data.data);
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, ifmt, image_data.width, image_data.height, 0, fmt, static_cast<GLenum>(image_data.pixel_type), image_data.data);
     }
 
     void Texture::bind() const {
@@ -380,5 +401,82 @@ namespace game::render {
 
     unsigned int Texture::get_handle() const noexcept {
         return m_Texture;
+    }
+
+    void Texture::set_image_2d(const unsigned int width, const unsigned int height, const Format format) {
+        bind();
+        glTexImage2D(static_cast<GLenum>(m_Type), 0, static_cast<GLint>(format), width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    }
+
+    std::shared_ptr<Texture> Texture::create_2d(const unsigned int width, const unsigned int height, const Format format) {
+        auto texture = std::make_shared<Texture>(Type::Texture2D);
+        texture->set_image_2d(width, height, format);
+        return texture;
+    }
+
+    RenderBuffer::RenderBuffer(const unsigned int width, const unsigned int height, const Format format) {
+        glCreateRenderbuffers(1, &m_Handle);
+        glNamedRenderbufferStorage(m_Handle, static_cast<GLenum>(format), width, height);
+    }
+
+    RenderBuffer::RenderBuffer(const unsigned int width, const unsigned int height, const Format format, const unsigned int samples) {
+        glCreateRenderbuffers(1, &m_Handle);
+        glNamedRenderbufferStorageMultisample(m_Handle, samples, static_cast<GLenum>(format), width, height);
+    }
+
+    RenderBuffer::~RenderBuffer() {
+        glDeleteRenderbuffers(1, &m_Handle);
+    }
+
+    unsigned int RenderBuffer::get_handle() const noexcept {
+        return m_Handle;
+    }
+
+    Framebuffer::Framebuffer() {
+        glCreateFramebuffers(1, &m_Handle);
+    }
+
+    Framebuffer::~Framebuffer() {
+        glDeleteFramebuffers(1, &m_Handle);
+    }
+
+    void Framebuffer::color_attachment(const Texture *const texture, const unsigned int index, const int level) const {
+        glNamedFramebufferTexture(m_Handle, GL_COLOR_ATTACHMENT0 + index, texture->get_handle(), level);
+    }
+
+    void Framebuffer::attachment(const Texture *texture, const Attachment attachment, const int level) const {
+        glNamedFramebufferTexture(m_Handle, static_cast<GLenum>(attachment), texture->get_handle(), level);
+    }
+
+    void Framebuffer::color_attachment(const RenderBuffer *texture, const unsigned int index, const int level) const {
+        glNamedFramebufferRenderbuffer(m_Handle, GL_COLOR_ATTACHMENT0 + index, texture->get_handle(), level);
+    }
+
+    void Framebuffer::attachment(const RenderBuffer *texture, const Attachment attachment, const int level) const {
+        glNamedFramebufferRenderbuffer(m_Handle, static_cast<GLenum>(attachment), texture->get_handle(), level);
+    }
+
+    unsigned int Framebuffer::get_handle() const noexcept {
+        return m_Handle;
+    }
+
+    bool Framebuffer::is_complete() const {
+        return glCheckNamedFramebufferStatus(m_Handle, GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    }
+
+    void Framebuffer::bind() const {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
+    }
+
+    void Framebuffer::bind_draw() const {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_Handle);
+    }
+
+    void Framebuffer::bind_read() const {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_Handle);
+    }
+
+    void Framebuffer::bind_default() {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 } // namespace game::render

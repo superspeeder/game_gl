@@ -1,0 +1,15 @@
+#version 460 core
+
+uniform sampler2D uTexture;
+
+const mat3 KERNEL = mat3(
+1.0f, 1.0f, 1.0f,
+1.0f, 1.0f, 1.0f,
+1.0f, 1.0f, 1.0f
+) / 9.0;
+
+vec4 apply_kernel(vec2 uv) {
+}
+
+void main() {
+}

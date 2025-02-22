@@ -2,7 +2,8 @@
 // Created by andy on 2/18/2025.
 //
 
-#include "game.hpp"
+// ReSharper disable CppMemberFunctionMayBeConst
+#include "game/game.hpp"
 #include <glad/gl.h>
 
 #include <iostream>
@@ -64,57 +65,90 @@ namespace game {
         }
     }
 
-    void Game::create() {
-        float vertices[] = {
-            0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+    struct Vertex {
+        glm::vec2 position;
+        glm::vec2 uv;
+    };
 
-            1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+    void Game::create() {
+        Vertex vertices[] = {
+            {{-0.25f, -0.25f}, {0.0f, 0.0f}},
+            {{0.25f, -0.25f}, {0.25f, 0.0f}},
+            {{0.25f, 0.25f}, {0.25f, 0.25f}},
+
+            {{-0.25f, -0.25f}, {0.0f, 0.0f}},
+            {{0.25f, 0.25f}, {0.25f, 0.25f}},
+            {{-0.25f, 0.25f}, {0.0f, 0.25f}},
         };
+
+        Vertex screen_vertices[] = {
+            {{-1.0f, -1.0f}, {0.0f, 0.0f}},
+            {{1.0f, -1.0f}, {1.0f, 0.0f}},
+            {{1.0f, 1.0f}, {1.0f, 1.0f}},
+
+            {{-1.0f, -1.0f}, {0.0f, 0.0f}},
+            {{1.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-1.0f, 1.0f}, {0.0f, 1.0f}},
+        };
+
 
         m_VertexBuffer = std::make_shared<render::Buffer>(sizeof(vertices), vertices);
         m_VertexArray  = std::make_shared<render::VertexArray>();
         m_VertexArray->add_vertex_buffer(m_VertexBuffer.get(), {2, 2});
 
-        m_ShaderProgram = render::ShaderProgram::create(
-            R"(#version 460 core
-layout(location = 0) in vec2 posIn;
-layout(location = 1) in vec2 uvIn;
-
-out vec2 fUV;
-
-void main() {
-    gl_Position = vec4(posIn, 0.0, 1.0); // should error
-    fUV = uvIn;
-})",
-            R"(#version 460 core
-in vec2 fUV;
-
-out vec4 colorOut;
-
-uniform sampler2D uTexture;
-
-void main() {
-    colorOut = texture(uTexture, fUV);
-}
-)");
+        m_ScreenVertexBuffer = std::make_shared<render::Buffer>(sizeof(vertices), vertices);
+        m_ScreenVertexArray  = std::make_shared<render::VertexArray>();
+        m_ScreenVertexArray->add_vertex_buffer(m_ScreenVertexBuffer.get(), {2, 2});
 
         m_Texture = render::Texture::load("assets/test.png");
 
-        m_Texture->bind();
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+        int width,height;
+        glfwGetFramebufferSize(m_Window, &width, &height);
+
+        // build render target
+        m_RenderTargetTexture = render::Texture::create_2d(width, height, render::Format::RGBA8);
+        m_RenderTargetDepthStencilBuffer = std::make_shared<render::RenderBuffer>(width, height, render::Format::D24S8);
+        m_RenderTarget = std::make_shared<render::Framebuffer>();
+        m_RenderTarget->color_attachment(m_RenderTargetTexture.get(), 0);
+        m_RenderTarget->attachment(m_RenderTargetDepthStencilBuffer.get(), render::Framebuffer::Attachment::DepthStencil);
+        glTextureParameteri(m_RenderTargetTexture->get_handle(), GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        m_RenderTargetTexture2 = render::Texture::create_2d(width, height, render::Format::RGBA8);
+        m_RenderTargetDepthStencilBuffer2 = std::make_shared<render::RenderBuffer>(width, height, render::Format::D24S8);
+        m_RenderTarget2 = std::make_shared<render::Framebuffer>();
+        m_RenderTarget2->color_attachment(m_RenderTargetTexture2.get(), 0);
+        m_RenderTarget2->attachment(m_RenderTargetDepthStencilBuffer2.get(), render::Framebuffer::Attachment::DepthStencil);
+        glTextureParameteri(m_RenderTargetTexture2->get_handle(), GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        m_ShaderProgram = render::ShaderProgram::load("assets/main.vert", "assets/main.frag");
+        m_PostProcess = render::ShaderProgram::load("assets/post_process.vert", "assets/post_process.frag");
+        m_PostProcess2 = render::ShaderProgram::load_compute("assets/post_process2.comp");
     }
 
     void Game::render(float delta) {
         render::clearBackground({1.0f, 0.0f, 0.0f});
 
+        m_RenderTarget->bind();
+
         m_ShaderProgram->use();
         m_Texture->bind_unit(0);
-        int loc = m_ShaderProgram->get_uniform_location("uTexture");
-        glUniform1i(loc, 0);
+        m_ShaderProgram->uniform1i("uTexture", 0);
+        m_VertexArray->bind();
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        m_RenderTarget2->bind();
+
+        m_PostProcess->use();
+        m_RenderTargetTexture->bind_unit(0);
+        m_PostProcess->uniform1i("uTexture", 0);
+        m_PostProcess->uniform1f("uOffset", sin(m_ThisFrame / 5.0f) * 0.1f);
+        m_VertexArray->bind();
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        render::Framebuffer::bind_default();
+        m_PostProcess2->use();
+        m_RenderTargetTexture2->bind_unit(0);
+        m_PostProcess->uniform1i("uTexture", 0);
         m_VertexArray->bind();
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }

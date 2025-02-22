@@ -106,7 +106,8 @@ namespace game::render {
         Type         m_Type;
     };
 
-    // TODO: redo shader abstraction as a pipeline abstraction for better compatibility with trying to port this to use vulkan in the future (not important right now)
+    // TODO: redo shader abstraction as a pipeline abstraction for better compatibility with trying to port this to use vulkan in the future (not
+    // important right now)
     class ShaderProgram {
       public:
         explicit ShaderProgram(const std::vector<ShaderModule *> &modules);
@@ -123,7 +124,13 @@ namespace game::render {
 
         void use() const;
 
-        int get_uniform_location(std::string_view name) const;
+        [[nodiscard]] int get_uniform_location(std::string_view name) const;
+
+        void uniform1i(std::string_view name, int value) const;
+        void uniform1f(std::string_view name, float value) const;
+
+
+        void dispatch(unsigned int x, unsigned int y, unsigned int z) const;
 
       private:
         unsigned int m_Program;
@@ -228,7 +235,8 @@ namespace game::render {
 
         explicit Texture(Type type);
 
-        // Both of these constructors create **owning** references to a texture. For right now, there is no way to easily form a non-owning reference to a texture from the handle.
+        // Both of these constructors create **owning** references to a texture. For right now, there is no way to easily form a non-owning reference
+        // to a texture from the handle.
         explicit Texture(unsigned int handle); // use Texture(unsigned int, Type) instead unless you don't know the type of the texture already.
         Texture(unsigned int handle, Type type);
 
@@ -243,8 +251,87 @@ namespace game::render {
 
         [[nodiscard]] unsigned int get_handle() const noexcept;
 
+        void set_image_2d(unsigned int width, unsigned int height, Format format);
+
+        static std::shared_ptr<Texture> create_2d(unsigned int width, unsigned int height, Format format);
+
       private:
         Type         m_Type;
         unsigned int m_Texture;
+    };
+
+    class RenderBuffer {
+      public:
+        RenderBuffer(unsigned int width, unsigned int height, Format format);
+        RenderBuffer(unsigned int width, unsigned int height, Format format, unsigned int samples);
+        ~RenderBuffer();
+
+        [[nodiscard]] unsigned int get_handle() const noexcept;
+
+      private:
+        unsigned int m_Handle;
+    };
+
+    class Framebuffer {
+      public:
+        enum class Attachment : GLenum {
+            Color0       = GL_COLOR_ATTACHMENT0,
+            Color1       = GL_COLOR_ATTACHMENT1,
+            Color2       = GL_COLOR_ATTACHMENT2,
+            Color3       = GL_COLOR_ATTACHMENT3,
+            Color4       = GL_COLOR_ATTACHMENT4,
+            Color5       = GL_COLOR_ATTACHMENT5,
+            Color6       = GL_COLOR_ATTACHMENT6,
+            Color7       = GL_COLOR_ATTACHMENT7,
+            Color8       = GL_COLOR_ATTACHMENT8,
+            Color9       = GL_COLOR_ATTACHMENT9,
+            Color10      = GL_COLOR_ATTACHMENT10,
+            Color11      = GL_COLOR_ATTACHMENT11,
+            Color12      = GL_COLOR_ATTACHMENT12,
+            Color13      = GL_COLOR_ATTACHMENT13,
+            Color14      = GL_COLOR_ATTACHMENT14,
+            Color15      = GL_COLOR_ATTACHMENT15,
+            Color16      = GL_COLOR_ATTACHMENT16,
+            Color17      = GL_COLOR_ATTACHMENT17,
+            Color18      = GL_COLOR_ATTACHMENT18,
+            Color19      = GL_COLOR_ATTACHMENT19,
+            Color20      = GL_COLOR_ATTACHMENT20,
+            Color21      = GL_COLOR_ATTACHMENT21,
+            Color22      = GL_COLOR_ATTACHMENT22,
+            Color23      = GL_COLOR_ATTACHMENT23,
+            Color24      = GL_COLOR_ATTACHMENT24,
+            Color25      = GL_COLOR_ATTACHMENT25,
+            Color26      = GL_COLOR_ATTACHMENT26,
+            Color27      = GL_COLOR_ATTACHMENT27,
+            Color28      = GL_COLOR_ATTACHMENT28,
+            Color29      = GL_COLOR_ATTACHMENT29,
+            Color30      = GL_COLOR_ATTACHMENT30,
+            Color31      = GL_COLOR_ATTACHMENT31,
+            Depth        = GL_DEPTH_ATTACHMENT,
+            Stencil      = GL_STENCIL_ATTACHMENT,
+            DepthStencil = GL_DEPTH_STENCIL_ATTACHMENT,
+        };
+
+        Framebuffer();
+        ~Framebuffer();
+
+
+        void color_attachment(const Texture *texture, unsigned int index, int level = 0) const;
+        void attachment(const Texture *texture, Attachment attachment, int level = 0) const;
+
+        void color_attachment(const RenderBuffer *texture, unsigned int index, int level = 0) const;
+        void attachment(const RenderBuffer *texture, Attachment attachment, int level = 0) const;
+
+        [[nodiscard]] unsigned int get_handle() const noexcept;
+        [[nodiscard]] bool         is_complete() const;
+
+        void bind() const;
+        void bind_draw() const;
+        void bind_read() const;
+
+        static void bind_default();
+
+      private:
+        unsigned int m_Handle;
     };
 } // namespace game::render

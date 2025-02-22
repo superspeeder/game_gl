@@ -1,5 +1,5 @@
 Language: Cpp
-ColumnLimit: 180
+ColumnLimit: 150
 Standard: c++20
 SeparateDefinitionBlocks: Always
 TabWidth: 4
@@ -16,3 +16,5 @@ MaxEmptyLinesToKeep: 2
 NamespaceIndentation: All
 AllowShortFunctionsOnASingleLine: Inline
 CompactNamespaces: true
+SpaceBeforeCpp11BracedList: true
+BinPackArguments: false
